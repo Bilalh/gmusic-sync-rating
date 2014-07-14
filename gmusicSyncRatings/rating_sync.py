@@ -1,18 +1,17 @@
-#!/usr/bin/env python2.7
-
-import logging
-rootLogger = logging.getLogger()
-consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(logging.WARN)
-consoleHandler.setFormatter(logging.Formatter('[Log]    %(message)s'))
-logging.getLogger().addHandler(consoleHandler)
-logger = logging.getLogger(__name__)
+# coding: utf-8
+"""
+:copyright: 2014 Bilal Syed Hussain
+:license: Apache 2.0
+"""
 
 from gmusicapi import Mobileclient
 from pprint import pprint
 
-import argparse
+import logging
+import sys
 import xml.etree.cElementTree as ET
+
+logger = logging.getLogger(__name__)
 
 
 def make_track_key(fields):
@@ -25,24 +24,38 @@ def make_track_key(fields):
         fields.get('trackNumber', 0))
 
 
-def iter_many(it, length, num):
-    """ iter_many([1,2,3,4],4, 2) -> [1,2] [3,4] """
-    for i in xrange(0, length, num):
-        yield (it[i:i + num])
-
-
 class RatingsSync(object):
+
+    def __init__(self, username, password, itunes_xml, only_rated):
+        super(RatingsSync, self).__init__()
+        self.username = username
+        self.password = password
+        self.itunes_xml = itunes_xml
+        self.only_rated = only_rated
+
 
     def run(self):
         """ Run the sequence"""
-        logger.warn("Logging in")
+        logger.warn("Logging in to Google music")
         mc = self.get_gmusic_client()
+
+        if not mc:
+            logger.error("Failed to login to Google music")
+            sys.exit(4)
 
         logger.warn("Getting gmusic tracks")
         gtracks = self.get_all_gmusic_tracks(mc)
 
+        if not gtracks:
+            logger.error("Failed to Get Google music tracks")
+            sys.exit(5)
+
         logger.warn("Parsing itunes xml")
-        itracks = self.get_all_itunes_tracks("/Users/bilalh/Music/iTunes/iTunes Music Library.xml")
+        itracks = self.get_all_itunes_tracks(self.itunes_xml)
+        
+        if not itracks:
+            logger.error("Failed to Get iTunes tracks from %s", self.itunes_xml)
+            sys.exit(6)
 
         logger.warn("Trying to match tracks")
         updated = self.update_matching(itracks, gtracks)
@@ -50,6 +63,7 @@ class RatingsSync(object):
         if updated == []:
             logger.warn("No tracks to update")
         else:
+            logger.warn("Updating %d tracks", len(updated))
             self.sync_metadata(updated, mc)
 
 
@@ -58,18 +72,18 @@ class RatingsSync(object):
         mc.change_song_metadata(updated)
 
 
-    def update_matching(self, itracks, gtracks, only_itunes_rated=True):
+    def update_matching(self, itracks, gtracks):
         """ Updates gtracks with new ratings, and return the tracks which need updating"""
 
         updated=[]
         for (k, fields) in itracks.items():
-            if only_itunes_rated and 'rating' not in fields:
+            if self.only_rated and 'rating' not in fields:
                 continue
-
+            irating = fields.get('rating',0)
             if k in gtracks:
                 old=gtracks[k]['rating']
-                if old != fields['rating']:
-                    gtracks[k]['rating'] = fields['rating']
+                if old != irating:
+                    gtracks[k]['rating'] = irating
                     logger.info("Found %s, %s --> %s", k, old, gtracks[k]['rating'])
 
                     updated.append(gtracks[k])
@@ -81,7 +95,7 @@ class RatingsSync(object):
     def get_gmusic_client(self):
         """ Return the api object if successful """
         mc = Mobileclient()
-        mc.login('user', 'password')
+        mc.login(self.username, self.password)
         return mc
 
 
@@ -106,16 +120,14 @@ class RatingsSync(object):
 
         def f(fields):
             res = self.int_fields(fields)
-
             if "rating" in res:
                 # iTunes uses a 100 point scale convert to 1 to 5 scale
                 res['rating'] /= 20
-
             return res
 
         tracks = [ f({ itunes_to_gmusic[k.text]: v.text
-            for (k, v) in iter_many(fields, len(fields), 2)
-                if k.text in itunes_to_gmusic.keys() })
+                        for (k, v) in iter_many(fields, len(fields), 2)
+                        if k.text in itunes_to_gmusic.keys() })
             for fields in tree.iterfind('.//dict/dict/dict') ]
 
         logger.warn("%d Songs extracted", len(tracks))
@@ -131,6 +143,11 @@ class RatingsSync(object):
                 fields[k] = int(fields[k])
 
         return fields
+
+def iter_many(it, length, num):
+    """ iter_many([1,2,3,4],4, 2) -> [1,2] [3,4] """
+    for i in xrange(0, length, num):
+        yield (it[i:i + num])
 
 
 itunes_keys={'Album', 'Album Artist', 'Album Rating', 'Artist', 'Artwork Count', 'BPM', 'Bit Rate',
@@ -156,14 +173,10 @@ itunes_to_gmusic={
     'Disc Number'      : u'discNumber',
     'genre'            : u'genre',
     'Play Count'       : u'playCount',
-    'Rating'           : u'rating', # Need to convert
+    'Rating'           : u'rating', # Need to convert from 0-100  to 0-5
     'Name'             : u'title',
     'Disc Count'       : u'totalDiscCount',
     'Track Count'      : u'totalTrackCount',
     'Track Number'     : u'trackNumber',
     'Year'             : u'year'
 }
-
-# if __name__ == "__main__":
-rs = RatingsSync()
-rs.run()
