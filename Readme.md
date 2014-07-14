@@ -1,4 +1,4 @@
-gmusic-sync-rating
+gmusic-sync-rating  [![Build Status](https://travis-ci.org/Bilalh/gmusic-sync-rating.svg?branch=master)](https://travis-ci.org/Bilalh/gmusic-sync-rating)
 ==================
 
 `gmusic-sync-rating` is a command line tool to sync iTunes rating to google music. It supports the 5 star rating scale.
