@@ -37,9 +37,11 @@ setup(
     entry_points={'console_scripts': ['gmusic-sync-rating = gmusicSyncRatings.__main__:main']},
     install_requires=requirements(),
     classifiers=[
-        "License :: OSI Approved"
+        "License :: OSI Approved",
         "License :: OSI Approved :: Apache Software License",
         "Topic :: Utilities",
+        "Topic :: Multimedia :: Sound/Audio",
+        "Topic :: Multimedia :: Sound/Audio :: Editors",
         "Programming Language :: Python",
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7"
