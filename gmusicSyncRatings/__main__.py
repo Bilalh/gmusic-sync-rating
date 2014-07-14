@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+# coding: utf-8
 """
 :copyright: 2014 Bilal Syed Hussain
 :license: Apache 2.0
 """
+
 from .rating_sync import RatingsSync
 from .args import handle_args
 
