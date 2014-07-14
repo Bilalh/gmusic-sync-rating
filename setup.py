@@ -34,7 +34,7 @@ setup(
     author_email='bilalshussain@gmail.com',
     license=gmusicSyncRatings.__license__,
     packages=['gmusicSyncRatings'],
-    entry_points={'console_scripts': ['gmusicSyncRatings = gmusicSyncRatings.__main__:main']},
+    entry_points={'console_scripts': ['gmusic-sync-rating = gmusicSyncRatings.__main__:main']},
     install_requires=requirements(),
     classifiers=[
         "License :: OSI Approved"
