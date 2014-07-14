@@ -13,7 +13,7 @@ gmusic-sync-rating  [![Build Status](https://travis-ci.org/Bilalh/gmusic-sync-ra
 
 ##Usage
 
-	usage: gmusicSyncRatings [-h] [--password PASSWORD] [--itunes-xml FILE]
+	usage: gmusic-sync-ratings [-h] [--password PASSWORD] [--itunes-xml FILE]
 	                         [--only-rated]
 	                         username
 
@@ -31,7 +31,7 @@ gmusic-sync-rating  [![Build Status](https://travis-ci.org/Bilalh/gmusic-sync-ra
 
 If `--password` is not specified then `gmusic-sync-rating` will prompt you to enter it
 
-	$ gmusicSyncRatings 'myemail@example.com'
+	$ gmusic-sync-rating 'myemail@example.com'
 	Enter your google music password
 	Password:
 
