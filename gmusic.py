@@ -16,7 +16,7 @@ import xml.etree.cElementTree as ET
 
 
 def make_track_key(fields):
-    """  Makes a mapping with an unique key """
+    """  Makes a unique key for each track """
     # For Efficient Lookups
     return (
         fields['title'],
@@ -34,6 +34,7 @@ def iter_many(it, length, num):
 class RatingsSync(object):
 
     def run(self):
+        """ Run the sequence"""
         logger.warn("Logging in")
         mc = self.get_gmusic_client()
 
@@ -51,35 +52,38 @@ class RatingsSync(object):
         else:
             self.sync_metadata(updated, mc)
 
+
     def sync_metadata(self, updated, mc):
+        """ Perform the changes """
         mc.change_song_metadata(updated)
 
 
-    def update_matching(self, itracks, gtracks, only_rated=True):
-        """updates gtracks with new ratings"""
+    def update_matching(self, itracks, gtracks, only_itunes_rated=True):
+        """ Updates gtracks with new ratings, and return the tracks which need updating"""
 
         updated=[]
         for (k, fields) in itracks.items():
-            if only_rated and 'rating' not in fields:
+            if only_itunes_rated and 'rating' not in fields:
                 continue
 
             if k in gtracks:
                 old=gtracks[k]['rating']
                 if old != fields['rating']:
-                    raise
                     gtracks[k]['rating'] = fields['rating']
-                    logger.warn("Found %s, %s --> %s", k, old, gtracks[k]['rating'])
+                    logger.info("Found %s, %s --> %s", k, old, gtracks[k]['rating'])
 
                     updated.append(gtracks[k])
 
         logger.warn("Found %d tracks in gmusic to update", len(updated))
         return updated
 
-    def get_gmusic_client(self):
-        mc = Mobileclient()
 
+    def get_gmusic_client(self):
+        """ Return the api object if successful """
+        mc = Mobileclient()
         mc.login('user', 'password')
         return mc
+
 
     def get_all_gmusic_tracks(self, mc):
         """ All of the user's gmusic tracks """
@@ -143,21 +147,21 @@ u'playCount', u'rating', u'recentTimestamp', u'title', u'totalDiscCount', u'tota
 u'trackNumber', u'year'}
 
 itunes_to_gmusic={
-    'Artist'           : 'artist',
-    'Album'            : 'album',
-    'Album Artist'     : 'albumArtist',
-    'BPM'              : 'beatsPerMinute',
-    'Comments'         : 'comment',
-    'Composer'         : 'composer',
-    'Disc Number'      : 'discNumber',
-    'genre'            : 'genre',
-    'Play Count'       : 'playCount',
-    'Rating'           : 'rating', # Need to convert
-    'Name'             : 'title',
-    'Disc Count'       : 'totalDiscCount',
-    'Track Count'      : 'totalTrackCount',
-    'Track Number'     : 'trackNumber',
-    'Year'             : 'year'
+    'Artist'           : u'artist',
+    'Album'            : u'album',
+    'Album Artist'     : u'albumArtist',
+    'BPM'              : u'beatsPerMinute',
+    'Comments'         : u'comment',
+    'Composer'         : u'composer',
+    'Disc Number'      : u'discNumber',
+    'genre'            : u'genre',
+    'Play Count'       : u'playCount',
+    'Rating'           : u'rating', # Need to convert
+    'Name'             : u'title',
+    'Disc Count'       : u'totalDiscCount',
+    'Track Count'      : u'totalTrackCount',
+    'Track Number'     : u'trackNumber',
+    'Year'             : u'year'
 }
 
 # if __name__ == "__main__":
