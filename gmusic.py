@@ -1,14 +1,28 @@
 #!/usr/bin/env python2.7
 
+import logging
+rootLogger = logging.getLogger()
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(logging.WARN)
+consoleHandler.setFormatter(logging.Formatter('[Log]    %(message)s'))
+logging.getLogger().addHandler(consoleHandler)
+logger = logging.getLogger(__name__)
+
 from gmusicapi import Mobileclient
 from pprint import pprint
 
 import argparse
-import logging
 import xml.etree.cElementTree as ET
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+def make_track_key(fields):
+    """  Makes a mapping with an unique key """
+    # For Efficient Lookups
+    return (
+        fields['title'],
+        fields['artist'],
+        fields['album'],
+        fields.get('trackNumber', 0))
 
 
 def iter_many(it, length, num):
@@ -20,65 +34,103 @@ def iter_many(it, length, num):
 class RatingsSync(object):
 
     def run(self):
-        logger.info("Logging in")
+        logger.warn("Logging in")
         mc = self.get_gmusic_client()
-        logger.info("Getting gmusic tracks")
+
+        logger.warn("Getting gmusic tracks")
         gtracks = self.get_all_gmusic_tracks(mc)
-        logger.info("Parsing itunes xml")
+
+        logger.warn("Parsing itunes xml")
         itracks = self.get_all_itunes_tracks("/Users/bilalh/Music/iTunes/iTunes Music Library.xml")
-        raise
+
+        logger.warn("Trying to match tracks")
+        updated = self.update_matching(itracks, gtracks)
+
+        if updated == []:
+            logger.warn("No tracks to update")
+        else:
+            self.sync_metadata(updated, mc)
+
+    def sync_metadata(self, updated, mc):
+        mc.change_song_metadata(updated)
+
+
+    def update_matching(self, itracks, gtracks, only_rated=True):
+        """updates gtracks with new ratings"""
+
+        updated=[]
+        for (k, fields) in itracks.items():
+            if only_rated and 'rating' not in fields:
+                continue
+
+            if k in gtracks:
+                old=gtracks[k]['rating']
+                if old != fields['rating']:
+                    raise
+                    gtracks[k]['rating'] = fields['rating']
+                    logger.warn("Found %s, %s --> %s", k, old, gtracks[k]['rating'])
+
+                    updated.append(gtracks[k])
+
+        logger.warn("Found %d tracks in gmusic to update", len(updated))
+        return updated
 
     def get_gmusic_client(self):
         mc = Mobileclient()
+
         mc.login('user', 'password')
         return mc
 
     def get_all_gmusic_tracks(self, mc):
-        """ all of the user's gmusic tracks """
+        """ All of the user's gmusic tracks """
         tracks = []
-        for track in mc.get_all_songs(incremental=True):
-            tracks += track
-            logger.info("Gathered %d tracks info", len(tracks))
+        for songs in mc.get_all_songs(incremental=True):
+            tracks += songs
+            logger.warn("Gathered %d tracks' info", len(tracks))
 
-        # tracks = [song for song in tracks]
-        return sorted(tracks, key=lambda t: t['title'])
+        return { make_track_key(t): self.int_fields(t) for t in tracks }
 
 
     def get_all_itunes_tracks(self, xml_file):
-        """ all of the user's itunes tracks """
+        """ All of the user's itunes tracks """
 
-        logger.info("Loading XML file...")
+        logger.warn("Loading XML file...")
         tree = ET.parse(xml_file)
-        logger.info("XML file loaded")
+        logger.warn("XML file loaded")
 
-        logger.info("Extracting songs...")
+        logger.warn("Extracting songs...")
 
         def f(fields):
-            # Convert int fields to ints
-            for k in ['totalDiscCount', 'rating', 'year', 'totalTrackCount',
-                    'beatsPerMinute', 'year', 'trackNumber', 'discNumber', 'playCount']:
-                if k in fields:
-                    fields[k] = int(fields[k])
+            res = self.int_fields(fields)
 
-            if "rating" in fields:
+            if "rating" in res:
                 # iTunes uses a 100 point scale convert to 1 to 5 scale
-                fields['rating'] /= 20
+                res['rating'] /= 20
 
-            return fields
+            return res
 
         tracks = [ f({ itunes_to_gmusic[k.text]: v.text
             for (k, v) in iter_many(fields, len(fields), 2)
                 if k.text in itunes_to_gmusic.keys() })
             for fields in tree.iterfind('.//dict/dict/dict') ]
 
-        logger.info("%d Songs extracted", len(tracks))
+        logger.warn("%d Songs extracted", len(tracks))
 
-        return tracks
+        return { make_track_key(t): t for t in tracks }
 
 
+    def int_fields(self, fields):
+        # Convert int fields to ints
+        for k in ['totalDiscCount', 'rating', 'year', 'totalTrackCount',
+                'beatsPerMinute', 'year', 'trackNumber', 'discNumber', 'playCount']:
+            if k in fields:
+                fields[k] = int(fields[k])
 
-itunes_keys={'Album', 'Album Rating', 'Artist', 'Artwork Count', 'BPM', 'Bit Rate', 'Comments',
-'Composer', 'Date Added', 'Date Modified', 'Disc Count', 'Disc Number', 'File Folder Count',
+        return fields
+
+
+itunes_keys={'Album', 'Album Artist', 'Album Rating', 'Artist', 'Artwork Count', 'BPM', 'Bit Rate',
+'Comments', 'Composer', 'Date Added', 'Date Modified', 'Disc Count', 'Disc Number', 'File Folder Count',
 'File Type', 'Genre', 'Kind', 'Library Folder Count', 'Location', 'Name', 'Persistent ID',
 'Play Count', 'Play Date', 'Play Date UTC', 'Rating', 'Sample Rate', 'Size', 'Skip Count',
 'Skip Date', 'Sort Album', 'Total Time', 'Track Count', 'Track ID', 'Track Number',
@@ -91,7 +143,9 @@ u'playCount', u'rating', u'recentTimestamp', u'title', u'totalDiscCount', u'tota
 u'trackNumber', u'year'}
 
 itunes_to_gmusic={
+    'Artist'           : 'artist',
     'Album'            : 'album',
+    'Album Artist'     : 'albumArtist',
     'BPM'              : 'beatsPerMinute',
     'Comments'         : 'comment',
     'Composer'         : 'composer',
@@ -106,6 +160,6 @@ itunes_to_gmusic={
     'Year'             : 'year'
 }
 
-if __name__ == "__main__":
-    rs = RatingsSync()
-    rs.run()
+# if __name__ == "__main__":
+rs = RatingsSync()
+rs.run()
