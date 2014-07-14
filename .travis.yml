@@ -1,7 +1,12 @@
 language: python
 python:
   - "2.7"
-branches:
-  only:
-    - master
+
+
 install: pip install -r requirements.txt
+script:  python -m unittest discover
+
+notifications:
+  email:
+    on_success: change
+    on_failure: always

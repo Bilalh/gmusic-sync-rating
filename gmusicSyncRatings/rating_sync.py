@@ -51,7 +51,7 @@ class RatingsSync(object):
             sys.exit(5)
 
         logger.warn("Parsing itunes xml")
-        itracks = self.get_all_itunes_tracks(self.itunes_xml)
+        itracks = self.get_all_itunes_tracks()
         
         if not itracks:
             logger.error("Failed to Get iTunes tracks from %s", self.itunes_xml)
@@ -109,11 +109,11 @@ class RatingsSync(object):
         return { make_track_key(t): self.int_fields(t) for t in tracks }
 
 
-    def get_all_itunes_tracks(self, xml_file):
+    def get_all_itunes_tracks(self):
         """ All of the user's itunes tracks """
 
         logger.warn("Loading XML file...")
-        tree = ET.parse(xml_file)
+        tree = ET.parse(self.itunes_xml)
         logger.warn("XML file loaded")
 
         logger.warn("Extracting songs...")
